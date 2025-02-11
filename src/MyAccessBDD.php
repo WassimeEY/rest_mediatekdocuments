@@ -18,7 +18,7 @@ class MyAccessBDD extends AccessBDD {
     public function __construct(){
         try{
             parent::__construct();
-        }catch(\Exception $e){
+        }catch(Exception $e){
             throw $e;
         }
     }
@@ -46,8 +46,26 @@ class MyAccessBDD extends AccessBDD {
             case "etat" :
                 // select portant sur une table contenant juste id et libelle
                 return $this->selectTableSimple($table);
-            case "" :
-                // return $this->uneFonction(parametres);
+            case "commandedocument" :
+                if (empty($champs)) {
+                    return $this->selectAllCommandesDoc();
+                }
+                return $this->selectCommandesDoc($champs);
+            case "abonnement" :
+                if (empty($champs)) {
+                    return $this->selectAllAbonnements();
+                }
+                else if (array_key_exists('periodeRestanteMin', $champs)) {
+                    return $this->selectAbonnementsRevueBientotExpire($champs);
+                }
+                return $this->selectAbonnementsRevue($champs);
+            case "utilisateur":
+                if($this->selecUtilisateurValide($champs)){
+                    return $this->selecUtilisateurValide($champs); //On retourne une liste vide au lieu de null pour laisser savoir au logiciel que l'authentification a réussi.
+                }
+                else{
+                    return null; //On retourne null pour laisser savoir au logiciel que l'authentification a raté.
+                }
             default:
                 // cas général
                 return $this->selectTuplesOneTable($table, $champs);
@@ -63,8 +81,10 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementInsert(string $table, ?array $champs) : ?int{
         switch($table){
-            case "" :
-                // return $this->uneFonction(parametres);
+            case "commandedocument" :
+                return $this->insertOneCommandeDocument($champs);
+            case "abonnement" :
+                return $this->insertOneAbonnement($champs);
             default:                    
                 // cas général
                 return $this->insertOneTupleOneTable($table, $champs);	
@@ -81,7 +101,7 @@ class MyAccessBDD extends AccessBDD {
      */	
     protected function traitementUpdate(string $table, ?string $id, ?array $champs) : ?int{
         switch($table){
-            case "" :
+            case "commandedocument" :
                 // return $this->uneFonction(parametres);
             default:                    
                 // cas général
@@ -102,6 +122,7 @@ class MyAccessBDD extends AccessBDD {
                 // return $this->uneFonction(parametres);
             default:                    
                 // cas général
+                //var_dump($champs);
                 return $this->deleteTuplesOneTable($table, $champs);	
         }
     }	    
@@ -129,6 +150,71 @@ class MyAccessBDD extends AccessBDD {
         }
     }	
 
+     /**
+     * demande d'ajout (insert) d'une commandeDocument, on va l'ajouter dans la table commande également car commandedocument hérite de cette table.
+     * @param array|null $champs
+     * @return int|null nombre de commandeDocument ajoutées (0 ou 1) ou null si erreur
+     */	
+    private function insertOneCommandeDocument(?array $champs) : ?int{  //------------------------------------------------Ajouter transaction ici
+        if(empty($champs)){
+            return null;
+        }
+        $champsCommande = $champs;
+        unset($champsCommande['IdLivreDvd']);
+        unset($champsCommande['IdEtapeSuivi']);
+        unset($champsCommande['NbExemplaire']);
+        unset($champsCommande['EtapeSuiviLibelle']);
+        $champsCommandeDoc = $champs;
+        unset($champsCommandeDoc['EtapeSuiviLibelle']);
+        unset($champsCommandeDoc['DateCommande']);
+        unset($champsCommandeDoc['Montant']);
+        $retourInsertCommande = $this->insertOneTupleOneTable("commande",$champsCommande);
+        $retourInsertCommandeDoc = $this->insertOneTupleOneTable("commandedocument",$champsCommandeDoc);
+        if($retourInsertCommande == null || $retourInsertCommandeDoc == null){
+            return null;
+        }
+        else{
+            if(($retourInsertCommande+$retourInsertCommandeDoc) == 2){
+                return 1; //on aura donc bien ajouté une commande de document.
+            }
+            else{
+                return 0;
+            }
+        }
+    }
+    
+    /**
+     * demande d'ajout (insert) d'un abonnement, on va l'ajouter dans la table commande également car abonnement hérite de cette table.
+     * @param array|null $champs
+     * @return int|null nombre de abonnement ajoutées (0 ou 1) ou null si erreur
+     */	
+    private function insertOneAbonnement(?array $champs) : ?int{  //------------------------------------------------Ajouter transaction ici
+        if(empty($champs)){
+            return null;
+        }
+        $champsCommande = $champs;
+        unset($champsCommande['DateFinAbonnement']);
+        unset($champsCommande['IdRevue']);
+        unset($champsCommande['TitreRevue']);
+        $champsAbonnement = $champs;
+        unset($champsAbonnement['DateCommande']);
+        unset($champsAbonnement['Montant']);
+        unset($champsAbonnement['TitreRevue']);
+        $retourInsertCommande = $this->insertOneTupleOneTable("commande",$champsCommande);
+        $retourInsertAbonnement = $this->insertOneTupleOneTable("abonnement",$champsAbonnement);
+        if($retourInsertCommande == null || $retourInsertAbonnement == null){
+            return null;
+        }
+        else{
+            if(($retourInsertCommande+$retourInsertAbonnement) == 2){
+                return 1; //on aura donc bien ajouté un abonnement.
+            }
+            else{
+                return 0;
+            }
+        }
+    }
+    
     /**
      * demande d'ajout (insert) d'un tuple dans une table
      * @param string $table
@@ -139,6 +225,7 @@ class MyAccessBDD extends AccessBDD {
         if(empty($champs)){
             return null;
         }
+        //var_dump($champs);
         // construction de la requête
         $requete = "insert into $table (";
         foreach ($champs as $key => $value){
@@ -195,10 +282,12 @@ class MyAccessBDD extends AccessBDD {
         // construction de la requête
         $requete = "delete from $table where ";
         foreach ($champs as $key => $value){
+            //echo "\n-".$key."\n-";
             $requete .= "$key=:$key and ";
         }
         // (enlève le dernier and)
         $requete = substr($requete, 0, strlen($requete)-5);   
+        //echo "\n".$requete;
         return $this->conn->updateBDD($requete, $champs);	        
     }
  
@@ -257,6 +346,31 @@ class MyAccessBDD extends AccessBDD {
         return $this->conn->queryBDD($requete);
     }	
 
+     /**
+     * récupère toutes les lignes de la table commandedocument et les tables associées
+     * @return array|null
+     */
+    private function selectAllCommandesDoc() : ?array{
+        $requete = "Select c.id, c.dateCommande, c.montant, cd.nbExemplaire, cd.idLivreDvd, sui.id as idEtapeSuivi, sui.libelle as etapeSuiviLibelle ";
+        $requete .= "from commandedocument AS cd ";
+        $requete .= "join commande AS c on cd.id=c.id ";
+        $requete .= "left join suivi AS sui ON cd.idEtapeSuivi = sui.id ";
+        $requete .= "order by c.dateCommande DESC ";
+        return $this->conn->queryBDD($requete);
+    }	
+    
+    /**
+     * récupère toutes les lignes de la table abonnement et les tables associées
+     * @return array|null
+     */
+    private function selectAllAbonnements() : ?array{
+        $requete = "Select abo.id, c.dateCommande, c.montant, abo.dateFinAbonnement, abo.idRevue ";
+        $requete .= "from abonnement AS abo ";
+        $requete .= "join commande AS c on abo.id=c.id ";
+        $requete .= "order by c.dateCommande DESC ";
+        return $this->conn->queryBDD($requete);
+    }	
+    
     /**
      * récupère tous les exemplaires d'une revue
      * @param array|null $champs 
@@ -275,6 +389,120 @@ class MyAccessBDD extends AccessBDD {
         $requete .= "where e.id = :id ";
         $requete .= "order by e.dateAchat DESC";
         return $this->conn->queryBDD($requete, $champNecessaire);
-    }		    
+    }
+
+    /**
+     * récupère toutes les lignes de la table commandedocument et des tables associées, basé à partir de l'id du doc fournit dans la variable $champs.
+     * @param array|null $champs
+     * @return array|null
+     */
+    private function selectCommandesDoc(?array $champs): ?array {
+        $champNecessaire['idLivreDvd'] = $champs['idLivreDvd'];
+        $requete = "Select c.id, c.dateCommande, c.montant, cd.nbExemplaire, cd.idLivreDvd, sui.id as idEtapeSuivi, sui.libelle as etapeSuiviLibelle ";
+        $requete .= "from commandedocument AS cd ";
+        $requete .= "join commande AS c on cd.id=c.id ";
+        $requete .= "left join suivi AS sui ON cd.idEtapeSuivi = sui.id ";
+        $requete .= "where cd.idLivreDvd = :idLivreDvd ";
+        $requete .= "order by c.dateCommande DESC ";
+        return $this->conn->queryBDD($requete, $champNecessaire);
+    }
+    
+     /**
+     * récupère toutes les lignes de la table abonnement et des tables associées, basé à partir de l'id du doc fournit (la revue) dans la variable $champs.
+     * @return array|null
+     */
+    private function selectAbonnementsRevue(?array $champs) : ?array{
+        //echo"hg";
+        $champNecessaire['idRevue'] = $champs['idRevue'];
+        $requete = "Select abo.id, c.dateCommande, c.montant, abo.dateFinAbonnement, abo.idRevue, doc.titre AS titreRevue ";
+        $requete .= "from abonnement AS abo ";
+        $requete .= "join commande AS c on abo.id=c.id ";
+        $requete .= "left join document AS doc on abo.idRevue=doc.id ";
+        $requete .= "where abo.idRevue = :idRevue ";
+        $requete .= "order by c.dateCommande DESC ";
+        return $this->conn->queryBDD($requete, $champNecessaire);
+    }
+    
+    /**
+     * Récupère toutes les lignes de la table abonnement et des tables associées, basé à partir de l'id du doc fournit (la revue) dans la variable $champs.
+     * On a également le champ periodeRestanteMin 
+     * @return array|null
+     */
+    private function selectAbonnementsRevueBientotExpire(?array $champs) : ?array{
+        $champNecessaire['periodeRestanteMin'] = $champs['periodeRestanteMin'];
+        $requete = "Select abo.id, c.dateCommande, c.montant, abo.dateFinAbonnement, abo.idRevue, doc.titre AS titreRevue ";
+        $requete .= "from abonnement AS abo ";
+        $requete .= "join commande AS c on abo.id=c.id ";
+        $requete .= "left join document AS doc on abo.idRevue=doc.id ";
+        $requete .= "where DATEDIFF(NOW(), abo.dateFinAbonnement) >= -:periodeRestanteMin and DATEDIFF(NOW(), abo.dateFinAbonnement) <= 0 ";
+        $requete .= "order by abo.dateFinAbonnement ASC ";
+        //var_dump($requete);
+        return $this->conn->queryBDD($requete, $champNecessaire);
+    }
+    
+    /**
+     * Récupère la ligne de la table utilisateur et des tables associées, basé à partir du login et du mdp non haché fournit dans la variable $champs.
+     * On va haché le mdp avant de faire le comparaision.
+     * On va également séparer deux requêtes SQL pour éviter de retourner le mdp haché (car la vérification est déjà faite avec le password_verify().
+     * @param array|null $champs
+     * @return array|null
+     */
+    private function selecUtilisateurValide(?array $champs): ?array {
+        $mdpNonHache = $champs['mdp'];
+        $champNecessaire['login'] = $champs['login'];
+        $requeteMdp = "Select uti.mdp ";
+        $requeteMdp .= "from utilisateur AS uti ";
+        $requeteMdp .= "where uti.login = :login ";
+        $result = $this->conn->queryBDD($requeteMdp, $champNecessaire);
+        if($result == null){
+            //var_dump($champs['login']);
+            //var_dump($champs['mdp']);
+            //var_dump($requeteMdp);
+            //var_dump($champNecessaire);
+            return null;
+        }
+        $mdpHache = $result[0]['mdp'];
+        //echo"g";
+        //$requete = "Select uti.idService ";
+        //$requete .= "from utilisateur AS uti ";
+        //$requete .= "where uti.login = :login ";
+        if (password_verify($mdpNonHache, $mdpHache)) {
+            $requeteService = "Select uti.idService, ser.libelle AS LibelleService ";
+            $requeteService .= "from utilisateur AS uti ";
+            $requeteService .= "join service AS ser ON uti.idService = ser.id ";
+            $requeteService .= "where uti.login = :login ";
+            return $this->conn->queryBDD($requeteService, $champNecessaire);
+        } else {
+            return null;
+        }
+    }
+
+    /**
+     * demande de modification (update) d'une commande de document
+     * @param string\null $id
+     * @param array|null $champs 
+     * @return int|null nombre de tuples modifiés (0 ou 1) ou null si erreur
+     */	
+    private function updateCommandeDocument(?string $id, ?array $champs) : ?int {
+        if(empty($champs)){
+            return null;
+        }
+        if(is_null($id)){
+            return null;
+        }
+        $champsTableFilleCommandeDoc = $champs;
+        unset($champsTableFilleCommandeDoc['DateCommande']);
+        unset($champsTableFilleCommandeDoc['Montant']);
+        // construction de la requête
+        $requete = "update commandedocument set ";
+        foreach ($champs as $key => $value){
+            $requete .= "$key=:$key,";
+        }
+        // (enlève la dernière virgule)
+        $requete = substr($requete, 0, strlen($requete)-1);				
+        $champs["id"] = $id;
+        $requete .= " where id=:id;";		
+        return $this->conn->updateBDD($requete, $champs);	        
+    }
     
 }

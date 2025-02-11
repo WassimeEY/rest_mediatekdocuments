@@ -18,6 +18,7 @@ $controle = new Controle();
 if (!$url->authentification()){
     // l'authentification a échoué
     $controle->unauthorized();
+    
 }else{
     // récupère la méthode HTTP utilisée pour accéder à l'API
     $methodeHTTP = $url->recupMethodeHTTP();
@@ -25,6 +26,7 @@ if (!$url->authentification()){
     $table = $url->recupVariable("table");
     $id = $url->recupVariable("id");
     $champs = $url->recupVariable("champs", "json");
+    //var_dump($champs);
     // demande au controleur de traiter la demande
     $controle->demande($methodeHTTP, $table, $id, $champs);
 }

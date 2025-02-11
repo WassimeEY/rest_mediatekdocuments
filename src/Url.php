@@ -76,9 +76,11 @@ class Url {
      * @return string|array|null
      */
     public function recupVariable(string $nom, string $format="string") : string|array|null{
+        //var_dump($this->data);
         $variable = $this->data[$nom] ?? '';
         switch ($format){
             case "json" : 
+                //var_dump($variable);
                 $variable = $variable ? json_decode($variable, true) : null;
                 break;
         }

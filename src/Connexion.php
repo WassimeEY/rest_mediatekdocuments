@@ -61,6 +61,8 @@ class Connexion {
     public function updateBDD(string $requete, ?array $param=null) : ?int{
         try{
             $result = $this->prepareRequete($requete, $param);
+            //    var_dump($requete) ;
+            //var_dump($param) ;
             $reponse = $result->execute();
             if($reponse === true){
                 return $result->rowCount();
@@ -82,12 +84,14 @@ class Connexion {
         try{
             $result = $this->prepareRequete($requete, $param);
             $reponse = $result->execute();
+            //var_dump($reponse);
             if($reponse === true){
                 return $result->fetchAll(PDO::FETCH_ASSOC);
             }else{
                 return null;
             } 
         }catch(Exception $e){
+            //echo $e;
             return null;
         }
     }

@@ -51,6 +51,7 @@ abstract class AccessBDD {
             case 'POST' : 
                 return $this->traitementInsert($table, $champs);
             case 'PUT' : 
+                //echo"e";
                 return $this->traitementUpdate($table, $id, $champs);
             case 'DELETE' : 
                 return $this->traitementDelete($table, $champs);
