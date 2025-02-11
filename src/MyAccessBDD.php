@@ -61,10 +61,10 @@ class MyAccessBDD extends AccessBDD {
                 return $this->selectAbonnementsRevue($champs);
             case "utilisateur":
                 if($this->selecUtilisateurValide($champs)){
-                    return $this->selecUtilisateurValide($champs); //On retourne une liste vide au lieu de null pour laisser savoir au logiciel que l'authentification a réussi.
+                    return $this->selecUtilisateurValide($champs);
                 }
                 else{
-                    return null; //On retourne null pour laisser savoir au logiciel que l'authentification a raté.
+                    return null;
                 }
             default:
                 // cas général
