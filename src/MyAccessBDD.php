@@ -155,7 +155,7 @@ class MyAccessBDD extends AccessBDD {
      * @param array|null $champs
      * @return int|null nombre de commandeDocument ajoutées (0 ou 1) ou null si erreur
      */	
-    private function insertOneCommandeDocument(?array $champs) : ?int{  //------------------------------------------------Ajouter transaction ici
+    private function insertOneCommandeDocument(?array $champs) : ?int{
         if(empty($champs)){
             return null;
         }
@@ -188,7 +188,7 @@ class MyAccessBDD extends AccessBDD {
      * @param array|null $champs
      * @return int|null nombre de abonnement ajoutées (0 ou 1) ou null si erreur
      */	
-    private function insertOneAbonnement(?array $champs) : ?int{  //------------------------------------------------Ajouter transaction ici
+    private function insertOneAbonnement(?array $champs) : ?int{
         if(empty($champs)){
             return null;
         }
